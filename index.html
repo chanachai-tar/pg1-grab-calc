@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ผ่อน PG-1 แบบชิลๆ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .tab-active { background: rgb(16 185 129 / 0.2); color: rgb(52 211 153); }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex justify-center">
+
+<div class="w-full max-w-md p-4 pb-10">
+    <div class="text-center mt-2 mb-4">
+        <span class="text-xs font-semibold px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full">🛵 ผ่อน PG-1 แบบชิลๆ</span>
+        <h1 class="text-xl font-bold mt-2">บันทึกรายได้ Grab + เป้าหมายผ่อน</h1>
+    </div>
+
+    <!-- แท็บ -->
+    <div class="grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-xl border border-slate-700 mb-4">
+        <button id="tabLog" onclick="showTab('log')" class="py-2 rounded-lg text-sm font-semibold tab-active">📒 บันทึกรายได้</button>
+        <button id="tabGoal" onclick="showTab('goal')" class="py-2 rounded-lg text-sm font-semibold text-slate-400">🎯 เป้าหมายผ่อน</button>
+    </div>
+
+    <!-- ================= หน้าบันทึกรายได้ ================= -->
+    <section id="pageLog" class="space-y-4">
+
+        <!-- สรุปยอด -->
+        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700">
+            <div class="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-lg mb-3 text-xs">
+                <button data-period="week" onclick="setPeriod('week')" class="period-btn py-1.5 rounded-md font-semibold">สัปดาห์นี้</button>
+                <button data-period="month" onclick="setPeriod('month')" class="period-btn py-1.5 rounded-md font-semibold">เดือนนี้</button>
+                <button data-period="all" onclick="setPeriod('all')" class="period-btn py-1.5 rounded-md font-semibold">ทั้งหมด</button>
+            </div>
+
+            <div class="text-center">
+                <div class="text-xs text-slate-400">รายได้สุทธิ</div>
+                <div id="sumNet" class="text-3xl font-bold text-emerald-400">0 ฿</div>
+                <div id="sumDays" class="text-xs text-slate-500 mt-1">0 วัน</div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 mt-4 text-center">
+                <div class="bg-slate-900/60 rounded-lg p-2">
+                    <div class="text-[11px] text-slate-400">รายรับ</div>
+                    <div id="sumIncome" class="font-semibold text-white text-sm">0</div>
+                </div>
+                <div class="bg-slate-900/60 rounded-lg p-2">
+                    <div class="text-[11px] text-slate-400">ทิป</div>
+                    <div id="sumTip" class="font-semibold text-sky-400 text-sm">0</div>
+                </div>
+                <div class="bg-slate-900/60 rounded-lg p-2">
+                    <div class="text-[11px] text-slate-400">ค่าน้ำมัน</div>
+                    <div id="sumFuel" class="font-semibold text-rose-400 text-sm">0</div>
+                </div>
+            </div>
+
+            <!-- ความคืบหน้าค่างวด (เฉพาะเดือนนี้) -->
+            <div id="installmentBox" class="mt-4 hidden">
+                <div class="flex justify-between text-xs mb-1">
+                    <span class="text-slate-400">เก็บค่างวดเดือนนี้</span>
+                    <span id="installmentText" class="text-yellow-400 font-semibold"></span>
+                </div>
+                <div class="h-2 bg-slate-900 rounded-full overflow-hidden">
+                    <div id="installmentBar" class="h-full bg-yellow-400 rounded-full transition-all" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ฟอร์มบันทึก -->
+        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-3">
+            <div class="flex items-center justify-between">
+                <h2 class="font-semibold">บันทึกวันนี้</h2>
+                <input type="date" id="logDate" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white" onchange="loadDay()">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">รายรับจากงาน (บาท)</label>
+                    <input type="number" inputmode="decimal" id="logIncome" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="previewNet()">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">ทิป (บาท)</label>
+                    <input type="number" inputmode="decimal" id="logTip" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="previewNet()">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">ค่าน้ำมัน (บาท)</label>
+                    <input type="number" inputmode="decimal" id="logFuel" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="previewNet()">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">จำนวนงาน (ไม่ใส่ก็ได้)</label>
+                    <input type="number" inputmode="numeric" id="logJobs" placeholder="0" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold">
+                </div>
+            </div>
+            <div class="flex justify-between text-sm bg-slate-900/60 rounded-lg px-3 py-2">
+                <span class="text-slate-400">สุทธิวันนี้</span>
+                <span id="previewNet" class="font-bold text-emerald-400">0 ฿</span>
+            </div>
+            <button onclick="saveDay()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold rounded-xl py-2.5">💾 บันทึก</button>
+            <p id="saveMsg" class="text-center text-xs text-emerald-400 h-4"></p>
+        </div>
+
+        <!-- ประวัติ -->
+        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="font-semibold">ประวัติ</h2>
+                <button onclick="exportCSV()" class="text-xs text-slate-400 border border-slate-600 rounded-lg px-2 py-1">⬇️ สำรองเป็น CSV</button>
+            </div>
+            <div id="historyList" class="divide-y divide-slate-700/60 text-sm"></div>
+        </div>
+    </section>
+
+    <!-- ================= หน้าเป้าหมายผ่อน (ของเดิม) ================= -->
+    <section id="pageGoal" class="hidden">
+        <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">ค่างวดต่อเดือน (บาท)</label>
+                    <input type="number" id="monthlyPayment" value="2500" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">รายได้เฉลี่ย/งาน (บาท)</label>
+                        <input type="number" id="avgPerJob" value="35" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">น้ำมันสำรอง/วัน (บาท)</label>
+                        <input type="number" id="fuelPerDay" value="35" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">จำนวนวันที่ต้องการวิ่งต่อสัปดาห์ (วัน)</label>
+                    <input type="range" id="daysPerWeek" min="1" max="7" value="7" class="w-full accent-emerald-500 cursor-pointer" oninput="calculate()">
+                    <div class="text-right text-xs text-emerald-400 font-semibold mt-1"><span id="daysVal">7</span> วัน / สัปดาห์</div>
+                </div>
+            </div>
+
+            <hr class="border-slate-700 my-6">
+
+            <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-700/60 space-y-3">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">ค่างวดต่อสัปดาห์:</span>
+                    <span id="resWeeklyPayment" class="font-bold text-white">0 บาท</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-400">เป้าหมายรวม (ค่างวด + น้ำมัน):</span>
+                    <span id="resTotalWeekly" class="font-bold text-emerald-400">0 บาท/สัปดาห์</span>
+                </div>
+                <hr class="border-slate-800">
+                <div class="flex justify-between text-base font-semibold">
+                    <span class="text-slate-300">ต้องวิ่งวันละกี่งาน:</span>
+                    <span id="resJobsPerDay" class="text-yellow-400 text-lg">0 งาน / วัน</span>
+                </div>
+                <div class="text-center text-xs text-slate-500 mt-2" id="resTimeEstimate"></div>
+            </div>
+        </div>
+    </section>
+
+    <p class="text-center text-xs text-slate-500 mt-6">💡 ค่อยๆ เก็บวันละนิด สบายใจ ไม่กดดันครับ</p>
+    <p class="text-center text-[11px] text-slate-600 mt-1">ข้อมูลเก็บไว้ในเครื่องนี้เท่านั้น ควรกดสำรอง CSV เป็นระยะ</p>
+</div>
+
+<script>
+// ---------- ที่เก็บข้อมูล (localStorage) ----------
+const KEY_LOG = 'pg1_log_v1';
+const KEY_GOAL = 'pg1_goal_v1';
+
+function load(key, fallback) {
+    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+    catch (e) { return fallback; }
+}
+function store(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch (e) { return false; }
+}
+
+let entries = load(KEY_LOG, {});   // { 'YYYY-MM-DD': {income, tip, fuel, jobs} }
+let period = 'week';
+
+// ---------- วันที่ ----------
+function ymd(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function parseYmd(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function startOfWeek(d) { // เริ่มวันจันทร์
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = (x.getDay() + 6) % 7;
+    x.setDate(x.getDate() - diff);
+    return x;
+}
+const TH_DAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+function thDate(s) { const d = parseYmd(s); return `${TH_DAYS[d.getDay()]} ${d.getDate()} ${TH_MONTHS[d.getMonth()]}`; }
+
+const fmt = n => Math.round(n).toLocaleString('th-TH');
+const num = id => parseFloat(document.getElementById(id).value) || 0;
+const netOf = e => (e.income || 0) + (e.tip || 0) - (e.fuel || 0);
+
+// ---------- แท็บ ----------
+function showTab(t) {
+    document.getElementById('pageLog').classList.toggle('hidden', t !== 'log');
+    document.getElementById('pageGoal').classList.toggle('hidden', t !== 'goal');
+    for (const [id, name] of [['tabLog', 'log'], ['tabGoal', 'goal']]) {
+        const b = document.getElementById(id);
+        b.classList.toggle('tab-active', t === name);
+        b.classList.toggle('text-slate-400', t !== name);
+    }
+}
+
+// ---------- บันทึกรายวัน ----------
+function loadDay() {
+    const e = entries[document.getElementById('logDate').value];
+    document.getElementById('logIncome').value = e ? e.income || '' : '';
+    document.getElementById('logTip').value = e ? e.tip || '' : '';
+    document.getElementById('logFuel').value = e ? e.fuel || '' : '';
+    document.getElementById('logJobs').value = e ? e.jobs || '' : '';
+    previewNet();
+}
+function previewNet() {
+    const n = num('logIncome') + num('logTip') - num('logFuel');
+    const el = document.getElementById('previewNet');
+    el.textContent = fmt(n) + ' ฿';
+    el.className = 'font-bold ' + (n < 0 ? 'text-rose-400' : 'text-emerald-400');
+}
+function saveDay() {
+    const date = document.getElementById('logDate').value;
+    if (!date) return;
+    const e = { income: num('logIncome'), tip: num('logTip'), fuel: num('logFuel'), jobs: num('logJobs') };
+    const existed = !!entries[date];
+    entries[date] = e;
+    const ok = store(KEY_LOG, entries);
+    const msg = document.getElementById('saveMsg');
+    msg.textContent = ok ? (existed ? '✓ อัปเดตแล้ว' : '✓ บันทึกแล้ว') : '⚠️ บันทึกในเครื่องไม่ได้ (โหมดไม่ระบุตัวตน?)';
+    setTimeout(() => msg.textContent = '', 2000);
+    render();
+}
+function editDay(date) {
+    document.getElementById('logDate').value = date;
+    loadDay();
+    window.scrollTo({ top: document.getElementById('logDate').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+}
+function deleteDay(date) {
+    if (!confirm('ลบรายการวันที่ ' + thDate(date) + ' ?')) return;
+    delete entries[date];
+    store(KEY_LOG, entries);
+    render();
+    loadDay();
+}
+
+// ---------- สรุป ----------
+function setPeriod(p) { period = p; render(); }
+
+function inPeriod(dateStr, p) {
+    if (p === 'all') return true;
+    const d = parseYmd(dateStr), now = new Date();
+    if (p === 'month') return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    const s = startOfWeek(now), e = new Date(s); e.setDate(s.getDate() + 7);
+    return d >= s && d < e;
+}
+
+function render() {
+    document.querySelectorAll('.period-btn').forEach(b => {
+        const on = b.dataset.period === period;
+        b.classList.toggle('bg-emerald-500', on);
+        b.classList.toggle('text-slate-900', on);
+        b.classList.toggle('text-slate-400', !on);
+    });
+
+    let inc = 0, tip = 0, fuel = 0, days = 0, jobs = 0;
+    for (const [date, e] of Object.entries(entries)) {
+        if (!inPeriod(date, period)) continue;
+        inc += e.income || 0; tip += e.tip || 0; fuel += e.fuel || 0; jobs += e.jobs || 0; days++;
+    }
+    const net = inc + tip - fuel;
+    document.getElementById('sumNet').textContent = fmt(net) + ' ฿';
+    document.getElementById('sumNet').className = 'text-3xl font-bold ' + (net < 0 ? 'text-rose-400' : 'text-emerald-400');
+    document.getElementById('sumIncome').textContent = fmt(inc);
+    document.getElementById('sumTip').textContent = fmt(tip);
+    document.getElementById('sumFuel').textContent = fmt(fuel);
+    let daysTxt = `วิ่ง ${days} วัน`;
+    if (jobs) daysTxt += ` · ${fmt(jobs)} งาน`;
+    if (days) daysTxt += ` · เฉลี่ย ${fmt(net / days)} ฿/วัน`;
+    document.getElementById('sumDays').textContent = daysTxt;
+
+    // ความคืบหน้าค่างวดเดือนนี้
+    const box = document.getElementById('installmentBox');
+    const monthly = num('monthlyPayment');
+    if (period === 'month' && monthly > 0) {
+        box.classList.remove('hidden');
+        const pct = Math.max(0, Math.min(100, net / monthly * 100));
+        document.getElementById('installmentBar').style.width = pct + '%';
+        document.getElementById('installmentText').textContent =
+            net >= monthly ? `ครบแล้ว ✓ (${fmt(net)}/${fmt(monthly)})` : `${fmt(Math.max(net, 0))} / ${fmt(monthly)} ฿`;
+    } else box.classList.add('hidden');
+
+    // ประวัติ
+    const list = document.getElementById('historyList');
+    const dates = Object.keys(entries).sort().reverse();
+    if (!dates.length) {
+        list.innerHTML = '<p class="text-slate-500 text-center py-4 text-xs">ยังไม่มีข้อมูล เริ่มบันทึกวันแรกได้เลย</p>';
+        return;
+    }
+    list.innerHTML = dates.map(date => {
+        const e = entries[date], n = netOf(e);
+        return `<div class="flex items-center justify-between py-2">
+            <button onclick="editDay('${date}')" class="text-left flex-1">
+                <div class="font-medium">${thDate(date)}</div>
+                <div class="text-[11px] text-slate-500">รับ ${fmt(e.income || 0)} · ทิป ${fmt(e.tip || 0)} · น้ำมัน ${fmt(e.fuel || 0)}${e.jobs ? ' · ' + e.jobs + ' งาน' : ''}</div>
+            </button>
+            <span class="font-semibold ${n < 0 ? 'text-rose-400' : 'text-emerald-400'} mr-3">${fmt(n)}</span>
+            <button onclick="deleteDay('${date}')" class="text-slate-500 hover:text-rose-400 text-xs px-1" aria-label="ลบ">✕</button>
+        </div>`;
+    }).join('');
+}
+
+function exportCSV() {
+    const rows = [['วันที่', 'รายรับ', 'ทิป', 'ค่าน้ำมัน', 'จำนวนงาน', 'สุทธิ']];
+    for (const date of Object.keys(entries).sort()) {
+        const e = entries[date];
+        rows.push([date, e.income || 0, e.tip || 0, e.fuel || 0, e.jobs || 0, netOf(e)]);
+    }
+    const blob = new Blob(['﻿' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `grab-income-${ymd(new Date())}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// ---------- เป้าหมายผ่อน (ของเดิม) ----------
+function calculate() {
+    const monthlyPayment = num('monthlyPayment');
+    const avgPerJob = num('avgPerJob') || 1;
+    const fuelPerDay = num('fuelPerDay');
+    const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value) || 7;
+    document.getElementById('daysVal').innerText = daysPerWeek;
+
+    store(KEY_GOAL, { monthlyPayment, avgPerJob, fuelPerDay, daysPerWeek });
+
+    const weeklyPayment = monthlyPayment / 4;
+    const totalWeeklyTarget = weeklyPayment + fuelPerDay * daysPerWeek;
+    const jobsPerDay = Math.ceil(Math.ceil(totalWeeklyTarget / avgPerJob) / daysPerWeek);
+    const minutesNeeded = jobsPerDay * 18;
+    const timeStr = minutesNeeded >= 60 ? (minutesNeeded / 60).toFixed(1) + ' ชั่วโมง' : minutesNeeded + ' นาที';
+
+    document.getElementById('resWeeklyPayment').innerText = fmt(weeklyPayment) + ' บาท';
+    document.getElementById('resTotalWeekly').innerText = fmt(totalWeeklyTarget) + ' บาท / สัปดาห์';
+    document.getElementById('resJobsPerDay').innerText = jobsPerDay + ' งาน / วัน';
+    document.getElementById('resTimeEstimate').innerText = `(ใช้เวลาวิ่งชิลๆ ประมาณ ${timeStr} ต่อวัน)`;
+    render();
+}
+
+// ---------- เริ่มต้น ----------
+const g = load(KEY_GOAL, null);
+if (g) {
+    document.getElementById('monthlyPayment').value = g.monthlyPayment;
+    document.getElementById('avgPerJob').value = g.avgPerJob;
+    document.getElementById('fuelPerDay').value = g.fuelPerDay;
+    document.getElementById('daysPerWeek').value = g.daysPerWeek;
+}
+document.getElementById('logDate').value = ymd(new Date());
+loadDay();
+calculate();
+</script>
+</body>
+</html>
