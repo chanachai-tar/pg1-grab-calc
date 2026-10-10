@@ -29,6 +29,35 @@
     <!-- ================= หน้าบันทึกรายได้ ================= -->
     <section id="pageLog" class="space-y-4">
 
+        <!-- เป้าวันนี้ -->
+        <div class="bg-slate-800 rounded-2xl p-4 border border-yellow-500/40">
+            <div class="flex items-center justify-between">
+                <h2 class="font-semibold">🎯 เป้าวันนี้</h2>
+                <button onclick="showTab('goal')" class="text-[11px] text-slate-400 underline">ตั้งเป้า</button>
+            </div>
+            <div id="todayTargetText" class="text-xs text-slate-400 mt-0.5"></div>
+
+            <div class="mt-3 h-3 bg-slate-900 rounded-full overflow-hidden">
+                <div id="todayBar" class="h-full rounded-full transition-all duration-500 bg-yellow-400" style="width:0%"></div>
+            </div>
+            <div class="flex justify-between text-[11px] text-slate-500 mt-1">
+                <span id="todayDone">ได้แล้ว 0 ฿</span>
+                <span id="todayPct">0%</span>
+            </div>
+
+            <div id="todayRemain" class="grid grid-cols-2 gap-2 mt-3 text-center">
+                <div class="bg-slate-900/60 rounded-lg p-2">
+                    <div class="text-[11px] text-slate-400">เหลืออีก</div>
+                    <div id="remainBaht" class="text-xl font-bold text-yellow-400">0 ฿</div>
+                </div>
+                <div class="bg-slate-900/60 rounded-lg p-2">
+                    <div class="text-[11px] text-slate-400">ประมาณ</div>
+                    <div id="remainJobs" class="text-xl font-bold text-yellow-400">0 งาน</div>
+                </div>
+            </div>
+            <div id="todayDoneMsg" class="hidden mt-3 text-center text-emerald-400 font-semibold">🎉 ถึงเป้าวันนี้แล้ว! <span id="todayOver" class="text-xs font-normal text-slate-400"></span></div>
+        </div>
+
         <!-- สรุปยอด -->
         <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700">
             <div class="grid grid-cols-3 gap-1 bg-slate-900 p-1 rounded-lg mb-3 text-xs">
@@ -223,6 +252,42 @@ function previewNet() {
     const el = document.getElementById('previewNet');
     el.textContent = fmt(n) + ' ฿';
     el.className = 'font-bold ' + (n < 0 ? 'text-rose-400' : 'text-emerald-400');
+    renderToday();
+}
+
+// ---------- เป้าวันนี้ ----------
+// เป้า/วัน = ค่างวดต่อวันวิ่ง + ค่าน้ำมัน (ใช้ค่าที่จ่ายจริงถ้าเกินที่ตั้งไว้)
+function renderToday() {
+    const today = ymd(new Date());
+    const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value) || 7;
+    const avgPerJob = num('avgPerJob') || 1;
+    const installPerDay = num('monthlyPayment') / 4 / daysPerWeek;
+
+    // ถ้ากำลังกรอกของวันนี้ ใช้ตัวเลขในช่องกรอกเลย (อัปเดตสด) ไม่งั้นใช้ที่บันทึกไว้
+    let e = entries[today] || {};
+    if (document.getElementById('logDate').value === today) {
+        e = { income: num('logIncome'), tip: num('logTip'), fuel: num('logFuel') };
+    }
+    const fuel = Math.max(num('fuelPerDay'), e.fuel || 0);
+    const target = installPerDay + fuel;
+    const earned = (e.income || 0) + (e.tip || 0);
+    const remain = Math.max(0, target - earned);
+    const pct = target > 0 ? Math.min(100, earned / target * 100) : 0;
+    const done = target > 0 && earned >= target;
+
+    document.getElementById('todayTargetText').textContent =
+        `เป้า ${fmt(target)} ฿ = ค่างวด ${fmt(installPerDay)} + น้ำมัน ${fmt(fuel)}`;
+    const bar = document.getElementById('todayBar');
+    bar.style.width = pct + '%';
+    bar.classList.toggle('bg-yellow-400', !done);
+    bar.classList.toggle('bg-emerald-400', done);
+    document.getElementById('todayDone').textContent = `ได้แล้ว ${fmt(earned)} ฿`;
+    document.getElementById('todayPct').textContent = Math.floor(pct) + '%';
+    document.getElementById('remainBaht').textContent = fmt(remain) + ' ฿';
+    document.getElementById('remainJobs').textContent = Math.ceil(remain / avgPerJob) + ' งาน';
+    document.getElementById('todayRemain').classList.toggle('hidden', done);
+    document.getElementById('todayDoneMsg').classList.toggle('hidden', !done);
+    document.getElementById('todayOver').textContent = earned > target ? `(เกินมา ${fmt(earned - target)} ฿)` : '';
 }
 function saveDay() {
     const date = document.getElementById('logDate').value;
@@ -350,6 +415,7 @@ function calculate() {
     document.getElementById('resJobsPerDay').innerText = jobsPerDay + ' งาน / วัน';
     document.getElementById('resTimeEstimate').innerText = `(ใช้เวลาวิ่งชิลๆ ประมาณ ${timeStr} ต่อวัน)`;
     render();
+    renderToday();
 }
 
 // ---------- เริ่มต้น ----------
