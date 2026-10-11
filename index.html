@@ -16,9 +16,12 @@
 
 <div class="w-full max-w-md p-4 pb-10">
     <div class="text-center mt-2 mb-4">
-        <button onclick="showTab('goal'); document.getElementById('goalName').focus()" class="text-xs font-semibold px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full">🛵 <span class="goal-name">ผ่อน PG-1</span> แบบชิลๆ ✏️</button>
-        <h1 class="text-xl font-bold mt-2">บันทึกรายได้ Grab + เป้าหมายผ่อน</h1>
+        <span class="text-xs font-semibold px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full">🛵 <span class="goal-name">ผ่อน PG-1</span> แบบชิลๆ</span>
+        <h1 class="text-xl font-bold mt-2">บันทึกรายได้ Grab + เป้าหมายเก็บเงิน</h1>
     </div>
+
+    <!-- เลือกเป้าหมาย -->
+    <div id="goalChips" class="flex gap-2 overflow-x-auto pb-2 mb-2 -mx-1 px-1"></div>
 
     <!-- แท็บ -->
     <div class="grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-xl border border-slate-700 mb-4">
@@ -141,24 +144,32 @@
         </div>
     </section>
 
-    <!-- ================= หน้าเป้าหมายผ่อน (ของเดิม) ================= -->
+    <!-- ================= หน้าตั้งเป้าหมาย ================= -->
     <section id="pageGoal" class="hidden">
         <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700">
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">ชื่อเป้าหมายการเก็บเงิน</label>
-                    <input type="text" id="goalName" value="ผ่อน PG-1" maxlength="30" placeholder="เช่น ค่าเช่าห้อง" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
-                    <div class="flex flex-wrap gap-1.5 mt-2">
-                        <button type="button" onclick="pickGoal('ผ่อน PG-1')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ผ่อน PG-1</button>
-                        <button type="button" onclick="pickGoal('ค่าเช่าห้อง')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ค่าเช่าห้อง</button>
-                        <button type="button" onclick="pickGoal('ผ่อนมือถือ')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ผ่อนมือถือ</button>
-                        <button type="button" onclick="pickGoal('เงินเก็บฉุกเฉิน')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">เงินเก็บฉุกเฉิน</button>
+                <div id="goalEditBox" class="space-y-4">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">ชื่อเป้าหมายการเก็บเงิน</label>
+                        <input type="text" id="goalName" maxlength="30" placeholder="เช่น ค่าเช่าห้อง" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="editGoal()">
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            <button type="button" onclick="pickGoal('ผ่อน PG-1')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ผ่อน PG-1</button>
+                            <button type="button" onclick="pickGoal('ค่าเช่าห้อง')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ค่าเช่าห้อง</button>
+                            <button type="button" onclick="pickGoal('ผ่อนมือถือ')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ผ่อนมือถือ</button>
+                            <button type="button" onclick="pickGoal('เงินเก็บฉุกเฉิน')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">เงินเก็บฉุกเฉิน</button>
+                        </div>
                     </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">ยอดที่ต้องเก็บต่อเดือน (บาท)</label>
+                        <input type="number" inputmode="decimal" id="monthlyPayment" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="editGoal()">
+                    </div>
+                    <button id="deleteGoalBtn" type="button" onclick="deleteGoal()" class="text-xs text-rose-400 border border-rose-500/40 rounded-lg px-3 py-1.5">🗑 ลบเป้าหมายนี้</button>
                 </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">ยอดที่ต้องเก็บต่อเดือน (บาท)</label>
-                    <input type="number" id="monthlyPayment" value="2500" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
+                <div id="goalAllBox" class="hidden">
+                    <div class="text-sm text-slate-400 mb-2">รวมทุกเป้าหมาย</div>
+                    <div id="goalAllList" class="bg-slate-900/60 rounded-xl divide-y divide-slate-700/60 text-sm"></div>
                 </div>
+                <div class="text-[11px] text-slate-500 border-t border-slate-700 pt-3">ตั้งค่าการวิ่ง (ใช้ร่วมกันทุกเป้าหมาย)</div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm text-slate-400 mb-1">รายได้เฉลี่ย/งาน (บาท)</label>
@@ -271,7 +282,7 @@ function renderToday() {
     const today = ymd(new Date());
     const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value) || 7;
     const avgPerJob = num('avgPerJob') || 1;
-    const installPerDay = num('monthlyPayment') / 4 / daysPerWeek;
+    const installPerDay = goalMonthly() / 4 / daysPerWeek;
 
     // ถ้ากำลังกรอกของวันนี้ ใช้ตัวเลขในช่องกรอกเลย (อัปเดตสด) ไม่งั้นใช้ที่บันทึกไว้
     let e = entries[today] || {};
@@ -361,7 +372,7 @@ function render() {
 
     // ความคืบหน้าค่างวดเดือนนี้
     const box = document.getElementById('installmentBox');
-    const monthly = num('monthlyPayment');
+    const monthly = goalMonthly();
     if (period === 'month' && monthly > 0) {
         box.classList.remove('hidden');
         const pct = Math.max(0, Math.min(100, net / monthly * 100));
@@ -404,25 +415,86 @@ function exportCSV() {
     URL.revokeObjectURL(a.href);
 }
 
-// ---------- ชื่อเป้าหมาย ----------
-function goalName() { return document.getElementById('goalName').value.trim() || 'เป้าหมาย'; }
+// ---------- หลายเป้าหมาย ----------
+const KEY_GOALS = 'pg1_goals_v2';
+const KEY_SETTINGS = 'pg1_settings_v2';
+let goals = [];          // [{id, name, monthly}]
+let activeId = null;     // id ของเป้าหมาย หรือ 'all'
+
+function saveGoals() { store(KEY_GOALS, { goals, activeId }); }
+function activeGoal() { return goals.find(g => g.id === activeId) || null; }
+function goalName() {
+    if (activeId === 'all') return 'ทุกเป้าหมาย';
+    const g = activeGoal(); return (g && g.name.trim()) || 'เป้าหมาย';
+}
+function goalMonthly() {
+    if (activeId === 'all') return goals.reduce((s, g) => s + (g.monthly || 0), 0);
+    const g = activeGoal(); return g ? g.monthly || 0 : 0;
+}
+function esc(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function renderGoalChips() {
+    const chip = (on, label, onclick) =>
+        `<button onclick="${onclick}" class="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border ${on ? 'bg-emerald-500 text-slate-900 border-emerald-500' : 'border-slate-600 text-slate-300'}">${label}</button>`;
+    let html = goals.map(g => chip(g.id === activeId, esc(g.name.trim() || 'เป้าหมาย'), `selectGoal('${g.id}')`)).join('');
+    if (goals.length > 1) html += chip(activeId === 'all', '🧮 รวมทุกเป้า', "selectGoal('all')");
+    html += `<button onclick="addGoal()" class="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full border border-dashed border-emerald-500/60 text-emerald-400">+ เพิ่มเป้าหมาย</button>`;
+    document.getElementById('goalChips').innerHTML = html;
+}
+
+function fillGoalForm() {
+    const all = activeId === 'all';
+    document.getElementById('goalEditBox').classList.toggle('hidden', all);
+    document.getElementById('goalAllBox').classList.toggle('hidden', !all);
+    if (all) {
+        document.getElementById('goalAllList').innerHTML = goals.map(g =>
+            `<div class="flex justify-between px-3 py-2"><span>${esc(g.name.trim() || 'เป้าหมาย')}</span><span class="font-semibold">${fmt(g.monthly || 0)} ฿/เดือน</span></div>`).join('') +
+            `<div class="flex justify-between px-3 py-2 font-bold text-emerald-400"><span>รวม</span><span>${fmt(goalMonthly())} ฿/เดือน</span></div>`;
+    } else {
+        const g = activeGoal();
+        document.getElementById('goalName').value = g.name;
+        document.getElementById('monthlyPayment').value = g.monthly || '';
+        document.getElementById('deleteGoalBtn').classList.toggle('hidden', goals.length < 2);
+    }
+}
+
+function selectGoal(id) { activeId = id; saveGoals(); renderGoalChips(); fillGoalForm(); calculate(); }
+function addGoal() {
+    const g = { id: 'g' + Date.now(), name: 'เป้าหมายใหม่', monthly: 1000 };
+    goals.push(g);
+    selectGoal(g.id);
+    showTab('goal');
+    const inp = document.getElementById('goalName'); inp.focus(); inp.select();
+}
+function editGoal() {
+    const g = activeGoal(); if (!g) return;
+    g.name = document.getElementById('goalName').value;
+    g.monthly = num('monthlyPayment');
+    saveGoals(); renderGoalChips(); calculate();
+}
+function pickGoal(n) { document.getElementById('goalName').value = n; editGoal(); }
+function deleteGoal() {
+    if (goals.length < 2) return;
+    if (!confirm('ลบเป้าหมาย "' + goalName() + '" ?')) return;
+    goals = goals.filter(g => g.id !== activeId);
+    selectGoal(goals[0].id);
+}
 function applyGoalName() {
     const n = goalName();
     document.querySelectorAll('.goal-name').forEach(el => el.textContent = n);
     document.title = n + ' แบบชิลๆ';
 }
-function pickGoal(n) { document.getElementById('goalName').value = n; calculate(); }
 
 // ---------- เป้าหมายผ่อน ----------
 function calculate() {
     applyGoalName();
-    const monthlyPayment = num('monthlyPayment');
+    const monthlyPayment = goalMonthly();
     const avgPerJob = num('avgPerJob') || 1;
     const fuelPerDay = num('fuelPerDay');
     const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value) || 7;
     document.getElementById('daysVal').innerText = daysPerWeek;
 
-    store(KEY_GOAL, { name: goalName(), monthlyPayment, avgPerJob, fuelPerDay, daysPerWeek });
+    store(KEY_SETTINGS, { avgPerJob, fuelPerDay, daysPerWeek });
 
     const weeklyPayment = monthlyPayment / 4;
     const totalWeeklyTarget = weeklyPayment + fuelPerDay * daysPerWeek;
@@ -439,14 +511,26 @@ function calculate() {
 }
 
 // ---------- เริ่มต้น ----------
-const g = load(KEY_GOAL, null);
-if (g) {
-    if (g.name) document.getElementById('goalName').value = g.name;
-    document.getElementById('monthlyPayment').value = g.monthlyPayment;
-    document.getElementById('avgPerJob').value = g.avgPerJob;
-    document.getElementById('fuelPerDay').value = g.fuelPerDay;
-    document.getElementById('daysPerWeek').value = g.daysPerWeek;
-}
+(function initGoals() {
+    const saved = load(KEY_GOALS, null);
+    let s = load(KEY_SETTINGS, null);
+    if (saved && saved.goals && saved.goals.length) {
+        goals = saved.goals; activeId = saved.activeId;
+    } else {
+        // ย้ายข้อมูลจากเวอร์ชันเก่า (เป้าหมายเดียว)
+        const old = load(KEY_GOAL, null);
+        goals = [{ id: 'g1', name: (old && old.name) || 'ผ่อน PG-1', monthly: old ? old.monthlyPayment : 2500 }];
+        if (old && !s) s = old;
+    }
+    if (activeId !== 'all' && !goals.some(g => g.id === activeId)) activeId = goals[0].id;
+    if (activeId === 'all' && goals.length < 2) activeId = goals[0].id;
+    if (s) {
+        document.getElementById('avgPerJob').value = s.avgPerJob;
+        document.getElementById('fuelPerDay').value = s.fuelPerDay;
+        document.getElementById('daysPerWeek').value = s.daysPerWeek;
+    }
+    saveGoals(); renderGoalChips(); fillGoalForm();
+})();
 document.getElementById('logDate').value = ymd(new Date());
 loadDay();
 calculate();
