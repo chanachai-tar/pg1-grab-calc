@@ -330,6 +330,19 @@
         </div>
     </section>
 
+    <!-- เชื่อมกับสมุดเงิน -->
+    <div class="mt-6 bg-slate-800 rounded-2xl p-4 border border-slate-700">
+        <label class="flex items-center justify-between gap-3 cursor-pointer">
+            <div>
+                <div class="font-semibold text-sm">🔗 เชื่อมกับสมุดเงิน (money-book)</div>
+                <div class="text-[11px] text-slate-400">ส่งรายได้ Grab, ค่าน้ำมัน และอุปกรณ์ ไปเป็นรายการใน money-book อัตโนมัติ</div>
+            </div>
+            <input type="checkbox" id="mbSync" class="w-5 h-5 accent-emerald-500 shrink-0" onchange="toggleMbSync(this.checked)">
+        </label>
+        <div id="mbStatus" class="text-[11px] text-slate-500 mt-2"></div>
+        <a href="../money-book/" class="inline-block mt-2 text-xs text-emerald-400 underline">เปิดสมุดเงิน →</a>
+    </div>
+
     <p class="text-center text-xs text-slate-500 mt-6">💡 ค่อยๆ เก็บวันละนิด สบายใจ ไม่กดดันครับ</p>
     <p class="text-center text-[11px] text-slate-600 mt-1">ข้อมูลเก็บไว้ในเครื่องนี้เท่านั้น ควรกดสำรอง CSV เป็นระยะ</p>
 </div>
@@ -351,7 +364,7 @@ function store(key, value) {
 const KEY_LOGS = 'pg1_logs_v2';
 let logs = {};      // { goalId: { 'YYYY-MM-DD': {income, tip, fuel, jobs} } }
 let entries = {};   // บันทึกของเป้าที่เลือก (หรือรวมทุกเป้า)
-function saveLogs() { return store(KEY_LOGS, logs); }
+function saveLogs() { const ok = store(KEY_LOGS, logs); syncMoneyBook(); return ok; }
 // ผูก entries กับเป้าที่เลือก; โหมดรวม = รวมยอดทุกเป้าตามวันที่
 function bindEntries() {
     if (activeId !== 'all') {
@@ -688,7 +701,7 @@ const KEY_SETTINGS = 'pg1_settings_v2';
 let goals = [];          // [{id, name, monthly}]
 let activeId = null;     // id ของเป้าหมาย หรือ 'all'
 
-function saveGoals() { store(KEY_GOALS, { goals, activeId }); }
+function saveGoals() { store(KEY_GOALS, { goals, activeId }); syncMoneyBook(); }
 function activeGoal() { return goals.find(g => g.id === activeId) || null; }
 function goalName() {
     if (activeId === 'all') return 'ทุกเป้าหมาย';
@@ -930,7 +943,7 @@ function addGear() {
     if (!name || !(cost > 0)) { msg.textContent = 'ใส่ชื่อและราคาก่อนนะครับ'; return; }
     msg.textContent = '';
     gear.push({ id: 'e' + Date.now(), name, cost, date: document.getElementById('gearDate').value || ymd(new Date()) });
-    store(KEY_GEAR, gear);
+    store(KEY_GEAR, gear); syncMoneyBook();
     document.getElementById('gearName').value = ''; document.getElementById('gearCost').value = '';
     renderInvest();
 }
@@ -938,7 +951,7 @@ function deleteGear(id) {
     const it = gear.find(x => x.id === id); if (!it) return;
     if (!confirm('ลบ "' + it.name + '" ?')) return;
     gear = gear.filter(x => x.id !== id);
-    store(KEY_GEAR, gear);
+    store(KEY_GEAR, gear); syncMoneyBook();
     renderInvest();
 }
 function renderInvest() {
@@ -985,6 +998,46 @@ function renderInvest() {
         </div>`).join('');
 }
 
+// ---------- เชื่อมกับ money-book (อยู่โดเมนเดียวกัน ใช้ localStorage ร่วมกัน) ----------
+// ทุกครั้งที่ข้อมูลเปลี่ยน: ลบรายการที่มาจาก Grab (src:"grab") ใน money-book ออก แล้วใส่ชุดล่าสุดกลับเข้าไป
+const KEY_MB = 'moneybook', KEY_MB_SYNC = 'pg1_sync_moneybook';
+function mbSyncOn() { try { return localStorage.getItem(KEY_MB_SYNC) !== '0'; } catch (e) { return false; } }
+const r2 = n => Math.round(n * 100) / 100;
+function readMb() { try { return JSON.parse(localStorage.getItem(KEY_MB) || '{}'); } catch (e) { return null; } }
+function grabRecords() {
+    const out = [];
+    for (const g of goals) {
+        const name = g.name.trim() || 'เป้าหมาย';
+        for (const [d, e] of Object.entries(logs[g.id] || {})) {
+            const inc = (e.income || 0) + (e.tip || 0), ts = parseYmd(d).getTime();
+            if (inc > 0) out.push({ id: `grab-${g.id}-${d}`, type: 'in', amount: r2(inc), cat: 'รายได้เสริม', date: d,
+                note: `🛵 Grab · ${name}` + (e.tip ? ` (ทิป ${fmt(e.tip)})` : '') + (e.jobs ? ` · ${e.jobs} งาน` : ''), tax: '', src: 'grab', ts });
+            if (e.fuel > 0) out.push({ id: `grabfuel-${g.id}-${d}`, type: 'out', amount: r2(e.fuel), cat: 'เดินทาง', date: d,
+                note: `⛽ น้ำมันวิ่ง Grab · ${name}`, tax: '', src: 'grab', ts: ts + 1 });
+        }
+    }
+    for (const x of gear) out.push({ id: `grabgear-${x.id}`, type: 'out', amount: r2(x.cost), cat: 'อื่นๆ', date: x.date,
+        note: `🧰 อุปกรณ์ Grab: ${x.name}`, tax: '', src: 'grab', ts: parseYmd(x.date).getTime() + 2 });
+    return out;
+}
+function syncMoneyBook(force) {
+    if (!force && !mbSyncOn()) return;
+    const mb = readMb(); if (!mb) return;
+    const others = (mb.tx || []).filter(t => t.src !== 'grab');
+    const recs = mbSyncOn() ? grabRecords() : [];
+    mb.tx = others.concat(recs);
+    try { localStorage.setItem(KEY_MB, JSON.stringify(mb)); } catch (e) { return; }
+    const st = document.getElementById('mbStatus');
+    if (st) st.textContent = mbSyncOn() ? `✓ ซิงก์แล้ว ${recs.length} รายการ (หมวด "รายได้เสริม", "เดินทาง", "อื่นๆ")` : 'ปิดการเชื่อมแล้ว ลบรายการ Grab ออกจาก money-book แล้ว';
+}
+function toggleMbSync(on) {
+    if (!on && !confirm('ปิดการเชื่อม และลบรายการที่มาจาก Grab ออกจาก money-book ?')) {
+        document.getElementById('mbSync').checked = true; return;
+    }
+    try { localStorage.setItem(KEY_MB_SYNC, on ? '1' : '0'); } catch (e) {}
+    syncMoneyBook(true);
+}
+
 // ---------- เริ่มต้น ----------
 (function initGoals() {
     const saved = load(KEY_GOALS, null);
@@ -1011,7 +1064,9 @@ function renderInvest() {
 })();
 document.getElementById('logDate').value = ymd(new Date());
 document.getElementById('gearDate').value = ymd(new Date());
+document.getElementById('mbSync').checked = mbSyncOn();
 selectGoal(activeId);
+syncMoneyBook();
 </script>
 </body>
 </html>
