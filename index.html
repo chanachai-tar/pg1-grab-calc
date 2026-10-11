@@ -40,6 +40,17 @@
             </div>
             <div id="todayTargetText" class="text-xs text-slate-400 mt-0.5"></div>
 
+            <div id="goalProgressBox" class="hidden mt-3 bg-slate-900/60 rounded-lg p-2.5">
+                <div class="flex justify-between text-[11px] mb-1">
+                    <span id="goalProgressLabel" class="text-slate-300"></span>
+                    <span id="goalProgressPct" class="text-emerald-400 font-semibold"></span>
+                </div>
+                <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="goalProgressBar" class="h-full bg-emerald-400 rounded-full transition-all" style="width:0%"></div>
+                </div>
+                <div id="goalProgressEta" class="text-[11px] text-slate-500 mt-1"></div>
+            </div>
+
             <div class="mt-3 h-3 bg-slate-900 rounded-full overflow-hidden">
                 <div id="todayBar" class="h-full rounded-full transition-all duration-500 bg-yellow-400" style="width:0%"></div>
             </div>
@@ -177,9 +188,28 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm text-slate-400 mb-1">ยอดที่ต้องเก็บต่อเดือน (บาท)</label>
-                        <input type="number" inputmode="decimal" id="monthlyPayment" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="editGoal()">
+                        <label class="block text-sm text-slate-400 mb-1">ราคาเป้าหมาย / ยอดทั้งหมดที่ต้องเก็บ (บาท)</label>
+                        <input type="number" inputmode="decimal" id="goalPrice" placeholder="เช่น 40000 (ไม่ใส่ก็ได้)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="editGoal()">
+                        <div id="goalSavedText" class="text-[11px] text-slate-500 mt-1"></div>
                     </div>
+
+                    <div id="paceBox" class="hidden">
+                        <label class="block text-sm text-slate-400 mb-2">อยากให้ครบเร็วแค่ไหน?</label>
+                        <div id="paceCards" class="grid grid-cols-2 gap-2"></div>
+                        <div class="flex items-center gap-2 mt-2 text-sm">
+                            <span class="text-slate-400">หรือกำหนดเอง</span>
+                            <input type="number" inputmode="numeric" id="customMonths" min="1" placeholder="-" class="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white text-center font-semibold" oninput="setCustomMonths()">
+                            <span class="text-slate-400">เดือน</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1"><span id="monthlyLabel">ยอดที่ต้องเก็บต่อเดือน</span> (บาท)</label>
+                        <input type="number" inputmode="decimal" id="monthlyPayment" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="editGoal()">
+                        <div id="monthlyHint" class="hidden text-[11px] text-slate-500 mt-1">เช่น ค่างวดที่ต้องจ่ายแน่ๆ ทุกเดือน ระบบจะไม่ให้ต่ำกว่านี้</div>
+                    </div>
+
+                    <div id="planSummary" class="hidden bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 text-sm"></div>
                     <button id="deleteGoalBtn" type="button" onclick="deleteGoal()" class="text-xs text-rose-400 border border-rose-500/40 rounded-lg px-3 py-1.5">🗑 ลบเป้าหมายนี้</button>
                 </div>
                 <div id="goalAllBox" class="hidden">
@@ -190,16 +220,16 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-sm text-slate-400 mb-1">รายได้เฉลี่ย/งาน (บาท)</label>
-                        <input type="number" id="avgPerJob" value="35" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
+                        <input type="number" id="avgPerJob" value="35" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate(); if (activeId !== 'all') renderPlan()">
                     </div>
                     <div>
                         <label class="block text-sm text-slate-400 mb-1">น้ำมันสำรอง/วัน (บาท)</label>
-                        <input type="number" id="fuelPerDay" value="35" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
+                        <input type="number" id="fuelPerDay" value="35" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate(); if (activeId !== 'all') renderPlan()">
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm text-slate-400 mb-1">จำนวนวันที่ต้องการวิ่งต่อสัปดาห์ (วัน)</label>
-                    <input type="range" id="daysPerWeek" min="1" max="7" value="7" class="w-full accent-emerald-500 cursor-pointer" oninput="calculate()">
+                    <input type="range" id="daysPerWeek" min="1" max="7" value="7" class="w-full accent-emerald-500 cursor-pointer" oninput="calculate(); if (activeId !== 'all') renderPlan()">
                     <div class="text-right text-xs text-emerald-400 font-semibold mt-1"><span id="daysVal">7</span> วัน / สัปดาห์</div>
                 </div>
             </div>
@@ -434,7 +464,7 @@ function renderToday() {
     const done = target > 0 && earned >= target;
 
     document.getElementById('todayTargetText').textContent =
-        `เป้า ${fmt(target)} ฿ = ${goalName()} ${fmt(installPerDay)} + น้ำมัน ${fmt(fuel)}`;
+        `เป้า ${fmt(target)} ฿ = เก็บ${goalName()} ${fmt(installPerDay)} + น้ำมัน ${fmt(fuel)}`;
     const bar = document.getElementById('todayBar');
     bar.style.width = pct + '%';
     bar.classList.toggle('bg-yellow-400', !done);
@@ -457,7 +487,7 @@ function saveDay() {
     const msg = document.getElementById('saveMsg');
     msg.textContent = ok ? (existed ? '✓ อัปเดตแล้ว' : '✓ บันทึกแล้ว') : '⚠️ บันทึกในเครื่องไม่ได้ (โหมดไม่ระบุตัวตน?)';
     setTimeout(() => msg.textContent = '', 2000);
-    render();
+    calculate(); if (activeId !== 'all') renderPlan();
 }
 function editDay(date) {
     document.getElementById('logDate').value = date;
@@ -468,7 +498,7 @@ function deleteDay(date) {
     if (!confirm('ลบรายการวันที่ ' + thDate(date) + ' ?')) return;
     delete entries[date];
     saveLogs();
-    render();
+    calculate();
     loadDay();
 }
 
@@ -586,9 +616,95 @@ function goalName() {
     if (activeId === 'all') return 'ทุกเป้าหมาย';
     const g = activeGoal(); return (g && g.name.trim()) || 'เป้าหมาย';
 }
+// ---------- ราคาเป้าหมาย + ความเร็ว ----------
+const PACES = [
+    { k: 'chill',  icon: '🐢', label: 'สบายๆ',   months: 24 },
+    { k: 'normal', icon: '🚶', label: 'ปกติ',     months: 12 },
+    { k: 'fast',   icon: '🏃', label: 'ไว',       months: 6 },
+    { k: 'turbo',  icon: '🚀', label: 'เทอร์โบ', months: 3 },
+];
+function savedOf(g) { return Object.values(logs[g.id] || {}).reduce((s, e) => s + netOf(e), 0); }
+function remainingOf(g) { return Math.max(0, (g.price || 0) - Math.max(0, savedOf(g))); }
+function paceOf(g) { return PACES.find(p => p.k === g.pace) || null; }
+function monthsOf(g) { const p = paceOf(g); return p ? p.months : Math.max(1, g.months || 12); }
+function paceLabel(g) { const p = paceOf(g); return p ? `${p.icon} ${p.label}` : `⚙️ ${monthsOf(g)} เดือน`; }
+// ยอดต่อเดือนที่ต้องเก็บจริง: ถ้ามีราคา = ที่เหลือ ÷ จำนวนเดือนตามความเร็ว (ไม่ต่ำกว่ายอดขั้นต่ำ)
+function monthlyFor(g, months) {
+    if (!(g.price > 0)) return g.monthly || 0;
+    const rem = remainingOf(g);
+    if (rem <= 0) return 0;
+    return Math.max(g.monthly || 0, rem / (months || monthsOf(g)));
+}
+function jobsPerDayFor(monthly) {
+    const days = parseInt(document.getElementById('daysPerWeek').value) || 7;
+    return Math.ceil((monthly / 4 / days + num('fuelPerDay')) / (num('avgPerJob') || 1));
+}
+function etaText(rem, monthly) {
+    if (rem <= 0) return 'ครบแล้ว 🎉';
+    if (!(monthly > 0)) return '-';
+    const m = Math.ceil(rem / monthly), d = new Date();
+    d.setMonth(d.getMonth() + m);
+    return `ครบประมาณ ${TH_MONTHS[d.getMonth()]} ${String(d.getFullYear() + 543).slice(-2)} (${m} เดือน)`;
+}
 function goalMonthly() {
-    if (activeId === 'all') return goals.reduce((s, g) => s + (g.monthly || 0), 0);
-    const g = activeGoal(); return g ? g.monthly || 0 : 0;
+    if (activeId === 'all') return goals.reduce((s, g) => s + monthlyFor(g), 0);
+    const g = activeGoal(); return g ? monthlyFor(g) : 0;
+}
+function setPace(k) {
+    const g = activeGoal(); if (!g) return;
+    g.pace = k; document.getElementById('customMonths').value = '';
+    saveGoals(); fillGoalForm(); calculate();
+}
+function setCustomMonths() {
+    const g = activeGoal(); if (!g) return;
+    const m = parseInt(document.getElementById('customMonths').value);
+    if (!(m > 0)) return;
+    g.pace = 'custom'; g.months = m;
+    saveGoals(); renderPlan(); calculate();
+}
+function renderPlan() {
+    const g = activeGoal(); if (!g) return;
+    const hasPrice = g.price > 0;
+    document.getElementById('paceBox').classList.toggle('hidden', !hasPrice);
+    document.getElementById('planSummary').classList.toggle('hidden', !hasPrice);
+    document.getElementById('monthlyHint').classList.toggle('hidden', !hasPrice);
+    document.getElementById('monthlyLabel').textContent = hasPrice ? 'ยอดขั้นต่ำต่อเดือน (ไม่บังคับ)' : 'ยอดที่ต้องเก็บต่อเดือน';
+    const saved = Math.max(0, savedOf(g));
+    document.getElementById('goalSavedText').textContent = hasPrice
+        ? `สะสมแล้ว ${fmt(saved)} ฿ · เหลือ ${fmt(remainingOf(g))} ฿` : '';
+    if (!hasPrice) return;
+
+    document.getElementById('paceCards').innerHTML = PACES.map(p => {
+        const on = g.pace === p.k, m = monthlyFor(g, p.months);
+        return `<button type="button" onclick="setPace('${p.k}')" class="text-left rounded-xl p-2.5 border ${on ? 'border-emerald-400 bg-emerald-500/15' : 'border-slate-700 bg-slate-900/60'}">
+            <div class="font-semibold ${on ? 'text-emerald-300' : ''}">${p.icon} ${p.label}</div>
+            <div class="text-[11px] text-slate-400">${p.months} เดือน</div>
+            <div class="text-xs mt-1">เดือนละ <b>${fmt(m)}</b> ฿</div>
+            <div class="text-[11px] text-yellow-400">~${jobsPerDayFor(m)} งาน/วัน</div>
+        </button>`;
+    }).join('');
+    if (g.pace === 'custom') document.getElementById('customMonths').value = g.months;
+
+    const m = monthlyFor(g);
+    document.getElementById('planSummary').innerHTML =
+        `<div class="font-semibold text-emerald-300">${paceLabel(g)}</div>
+         <div>เก็บเดือนละ <b>${fmt(m)}</b> ฿ · วันละ ~${jobsPerDayFor(m)} งาน</div>
+         <div class="text-xs text-slate-400">${etaText(remainingOf(g), m)}</div>`;
+}
+function renderGoalProgress() {
+    const list = activeId === 'all' ? goals : [activeGoal()].filter(Boolean);
+    const priced = list.filter(g => g.price > 0);
+    const box = document.getElementById('goalProgressBox');
+    if (!priced.length) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    const price = priced.reduce((s, g) => s + g.price, 0);
+    const saved = priced.reduce((s, g) => s + Math.min(g.price, Math.max(0, savedOf(g))), 0);
+    const rem = price - saved, monthly = priced.reduce((s, g) => s + monthlyFor(g), 0);
+    const pct = price > 0 ? saved / price * 100 : 0;
+    document.getElementById('goalProgressLabel').textContent = `สะสม ${fmt(saved)} / ${fmt(price)} ฿` + (activeId !== 'all' ? ` · ${paceLabel(priced[0])}` : '');
+    document.getElementById('goalProgressPct').textContent = Math.floor(pct) + '%';
+    document.getElementById('goalProgressBar').style.width = Math.min(100, pct) + '%';
+    document.getElementById('goalProgressEta').textContent = etaText(rem, monthly);
 }
 function esc(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
@@ -607,12 +723,15 @@ function fillGoalForm() {
     document.getElementById('goalAllBox').classList.toggle('hidden', !all);
     if (all) {
         document.getElementById('goalAllList').innerHTML = goals.map(g =>
-            `<div class="flex justify-between px-3 py-2"><span>${esc(g.name.trim() || 'เป้าหมาย')}</span><span class="font-semibold">${fmt(g.monthly || 0)} ฿/เดือน</span></div>`).join('') +
+            `<div class="flex justify-between px-3 py-2"><span>${esc(g.name.trim() || 'เป้าหมาย')}</span><span class="font-semibold">${fmt(monthlyFor(g))} ฿/เดือน${g.price > 0 ? ' · ' + paceLabel(g) : ''}</span></div>`).join('') +
             `<div class="flex justify-between px-3 py-2 font-bold text-emerald-400"><span>รวม</span><span>${fmt(goalMonthly())} ฿/เดือน</span></div>`;
     } else {
         const g = activeGoal();
         document.getElementById('goalName').value = g.name;
         document.getElementById('monthlyPayment').value = g.monthly || '';
+        document.getElementById('goalPrice').value = g.price || '';
+        document.getElementById('customMonths').value = g.pace === 'custom' ? g.months : '';
+        renderPlan();
         document.getElementById('deleteGoalBtn').classList.toggle('hidden', goals.length < 2);
     }
 }
@@ -635,7 +754,9 @@ function editGoal() {
     const g = activeGoal(); if (!g) return;
     g.name = document.getElementById('goalName').value;
     g.monthly = num('monthlyPayment');
-    saveGoals(); renderGoalChips(); calculate();
+    g.price = num('goalPrice');
+    if (g.price > 0 && !g.pace) g.pace = 'normal';
+    saveGoals(); renderGoalChips(); renderPlan(); calculate();
 }
 function pickGoal(n) { document.getElementById('goalName').value = n; editGoal(); }
 function deleteGoal() {
@@ -674,6 +795,7 @@ function calculate() {
     document.getElementById('resTimeEstimate').innerText = `(ใช้เวลาวิ่งชิลๆ ประมาณ ${timeStr} ต่อวัน)`;
     render();
     renderToday();
+    renderGoalProgress();
 }
 
 // ---------- เริ่มต้น ----------
