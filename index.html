@@ -16,14 +16,14 @@
 
 <div class="w-full max-w-md p-4 pb-10">
     <div class="text-center mt-2 mb-4">
-        <span class="text-xs font-semibold px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full">🛵 ผ่อน PG-1 แบบชิลๆ</span>
+        <button onclick="showTab('goal'); document.getElementById('goalName').focus()" class="text-xs font-semibold px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full">🛵 <span class="goal-name">ผ่อน PG-1</span> แบบชิลๆ ✏️</button>
         <h1 class="text-xl font-bold mt-2">บันทึกรายได้ Grab + เป้าหมายผ่อน</h1>
     </div>
 
     <!-- แท็บ -->
     <div class="grid grid-cols-2 gap-2 bg-slate-800 p-1 rounded-xl border border-slate-700 mb-4">
         <button id="tabLog" onclick="showTab('log')" class="py-2 rounded-lg text-sm font-semibold tab-active">📒 บันทึกรายได้</button>
-        <button id="tabGoal" onclick="showTab('goal')" class="py-2 rounded-lg text-sm font-semibold text-slate-400">🎯 เป้าหมายผ่อน</button>
+        <button id="tabGoal" onclick="showTab('goal')" class="py-2 rounded-lg text-sm font-semibold text-slate-400">🎯 ตั้งเป้าหมาย</button>
     </div>
 
     <!-- ================= หน้าบันทึกรายได้ ================= -->
@@ -90,7 +90,7 @@
             <!-- ความคืบหน้าค่างวด (เฉพาะเดือนนี้) -->
             <div id="installmentBox" class="mt-4 hidden">
                 <div class="flex justify-between text-xs mb-1">
-                    <span class="text-slate-400">เก็บค่างวดเดือนนี้</span>
+                    <span class="text-slate-400">เก็บ<span class="goal-name">ผ่อน PG-1</span> เดือนนี้</span>
                     <span id="installmentText" class="text-yellow-400 font-semibold"></span>
                 </div>
                 <div class="h-2 bg-slate-900 rounded-full overflow-hidden">
@@ -146,7 +146,17 @@
         <div class="bg-slate-800 rounded-2xl p-6 border border-slate-700">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm text-slate-400 mb-1">ค่างวดต่อเดือน (บาท)</label>
+                    <label class="block text-sm text-slate-400 mb-1">ชื่อเป้าหมายการเก็บเงิน</label>
+                    <input type="text" id="goalName" value="ผ่อน PG-1" maxlength="30" placeholder="เช่น ค่าเช่าห้อง" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                        <button type="button" onclick="pickGoal('ผ่อน PG-1')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ผ่อน PG-1</button>
+                        <button type="button" onclick="pickGoal('ค่าเช่าห้อง')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ค่าเช่าห้อง</button>
+                        <button type="button" onclick="pickGoal('ผ่อนมือถือ')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">ผ่อนมือถือ</button>
+                        <button type="button" onclick="pickGoal('เงินเก็บฉุกเฉิน')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">เงินเก็บฉุกเฉิน</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">ยอดที่ต้องเก็บต่อเดือน (บาท)</label>
                     <input type="number" id="monthlyPayment" value="2500" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate()">
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -170,11 +180,11 @@
 
             <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-700/60 space-y-3">
                 <div class="flex justify-between text-sm">
-                    <span class="text-slate-400">ค่างวดต่อสัปดาห์:</span>
+                    <span class="text-slate-400">ต้องเก็บต่อสัปดาห์:</span>
                     <span id="resWeeklyPayment" class="font-bold text-white">0 บาท</span>
                 </div>
                 <div class="flex justify-between text-sm">
-                    <span class="text-slate-400">เป้าหมายรวม (ค่างวด + น้ำมัน):</span>
+                    <span class="text-slate-400">เป้าหมายรวม (ยอดเก็บ + น้ำมัน):</span>
                     <span id="resTotalWeekly" class="font-bold text-emerald-400">0 บาท/สัปดาห์</span>
                 </div>
                 <hr class="border-slate-800">
@@ -276,7 +286,7 @@ function renderToday() {
     const done = target > 0 && earned >= target;
 
     document.getElementById('todayTargetText').textContent =
-        `เป้า ${fmt(target)} ฿ = ค่างวด ${fmt(installPerDay)} + น้ำมัน ${fmt(fuel)}`;
+        `เป้า ${fmt(target)} ฿ = ${goalName()} ${fmt(installPerDay)} + น้ำมัน ${fmt(fuel)}`;
     const bar = document.getElementById('todayBar');
     bar.style.width = pct + '%';
     bar.classList.toggle('bg-yellow-400', !done);
@@ -394,15 +404,25 @@ function exportCSV() {
     URL.revokeObjectURL(a.href);
 }
 
-// ---------- เป้าหมายผ่อน (ของเดิม) ----------
+// ---------- ชื่อเป้าหมาย ----------
+function goalName() { return document.getElementById('goalName').value.trim() || 'เป้าหมาย'; }
+function applyGoalName() {
+    const n = goalName();
+    document.querySelectorAll('.goal-name').forEach(el => el.textContent = n);
+    document.title = n + ' แบบชิลๆ';
+}
+function pickGoal(n) { document.getElementById('goalName').value = n; calculate(); }
+
+// ---------- เป้าหมายผ่อน ----------
 function calculate() {
+    applyGoalName();
     const monthlyPayment = num('monthlyPayment');
     const avgPerJob = num('avgPerJob') || 1;
     const fuelPerDay = num('fuelPerDay');
     const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value) || 7;
     document.getElementById('daysVal').innerText = daysPerWeek;
 
-    store(KEY_GOAL, { monthlyPayment, avgPerJob, fuelPerDay, daysPerWeek });
+    store(KEY_GOAL, { name: goalName(), monthlyPayment, avgPerJob, fuelPerDay, daysPerWeek });
 
     const weeklyPayment = monthlyPayment / 4;
     const totalWeeklyTarget = weeklyPayment + fuelPerDay * daysPerWeek;
@@ -421,6 +441,7 @@ function calculate() {
 // ---------- เริ่มต้น ----------
 const g = load(KEY_GOAL, null);
 if (g) {
+    if (g.name) document.getElementById('goalName').value = g.name;
     document.getElementById('monthlyPayment').value = g.monthlyPayment;
     document.getElementById('avgPerJob').value = g.avgPerJob;
     document.getElementById('fuelPerDay').value = g.fuelPerDay;
