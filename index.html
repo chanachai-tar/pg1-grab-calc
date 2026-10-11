@@ -39,7 +39,12 @@
                 <h2 class="font-semibold">🎯 เป้าวันนี้</h2>
                 <button onclick="showTab('goal')" class="text-[11px] text-slate-400 underline">ตั้งเป้า</button>
             </div>
+            <div id="todaySlot" class="text-xs text-sky-300 mt-0.5"></div>
             <div id="todayTargetText" class="text-xs text-slate-400 mt-0.5"></div>
+            <div id="todayOffMsg" class="hidden mt-3 text-center bg-slate-900/60 rounded-lg p-3">
+                <div class="text-lg font-semibold">วันนี้ OFF 😴</div>
+                <div id="todayOffSub" class="text-xs text-slate-400"></div>
+            </div>
 
             <div id="goalProgressBox" class="hidden mt-3 bg-slate-900/60 rounded-lg p-2.5">
                 <div class="flex justify-between text-[11px] mb-1">
@@ -52,10 +57,10 @@
                 <div id="goalProgressEta" class="text-[11px] text-slate-500 mt-1"></div>
             </div>
 
-            <div class="mt-3 h-3 bg-slate-900 rounded-full overflow-hidden">
+            <div id="todayBarWrap" class="mt-3 h-3 bg-slate-900 rounded-full overflow-hidden">
                 <div id="todayBar" class="h-full rounded-full transition-all duration-500 bg-yellow-400" style="width:0%"></div>
             </div>
-            <div class="flex justify-between text-[11px] text-slate-500 mt-1">
+            <div id="todayBarText" class="flex justify-between text-[11px] text-slate-500 mt-1">
                 <span id="todayDone">ได้แล้ว 0 ฿</span>
                 <span id="todayPct">0%</span>
             </div>
@@ -243,7 +248,16 @@
                         <input type="number" id="fuelPerDay" value="35" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="calculate(); if (activeId !== 'all') renderPlan()">
                     </div>
                 </div>
-                <div>
+                <div class="bg-slate-900/60 border border-slate-700 rounded-xl p-3">
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <span class="text-sm font-semibold">📅 ตารางวิ่งรายวัน</span>
+                        <input type="checkbox" id="useSchedule" class="w-5 h-5 accent-emerald-500" onchange="scheduleChanged()">
+                    </label>
+                    <div class="text-[11px] text-slate-500 mt-0.5">เป้ารายวันแบ่งตามชั่วโมงที่วิ่งแต่ละวัน · ใส่เวลาแบบ 17:30-20:00 (หลายรอบคั่นด้วย /)</div>
+                    <div id="scheduleRows" class="mt-2 space-y-1.5"></div>
+                    <div id="scheduleTotal" class="text-right text-xs text-emerald-400 font-semibold mt-2"></div>
+                </div>
+                <div id="daysSliderBox">
                     <label class="block text-sm text-slate-400 mb-1">จำนวนวันที่ต้องการวิ่งต่อสัปดาห์ (วัน)</label>
                     <input type="range" id="daysPerWeek" min="1" max="7" value="7" class="w-full accent-emerald-500 cursor-pointer" oninput="calculate(); if (activeId !== 'all') renderPlan()">
                     <div class="text-right text-xs text-emerald-400 font-semibold mt-1"><span id="daysVal">7</span> วัน / สัปดาห์</div>
@@ -534,22 +548,106 @@ async function scanImages(files) {
     }
 }
 
+// ---------- ตารางวิ่งรายวัน ----------
+// index ตาม Date.getDay(): 0 = อาทิตย์ ... 6 = เสาร์ (ค่าเริ่มต้นตามตาราง Work-Life-Grab Balance)
+const TH_DAY_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
+const DEFAULT_SCHEDULE = [
+    { on: false, time: '' },
+    { on: true,  time: '17:30-20:00' },
+    { on: false, time: '' },
+    { on: true,  time: '17:30-20:00' },
+    { on: false, time: '' },
+    { on: true,  time: '17:30-21:30' },
+    { on: true,  time: '11:00-14:00 / 17:00-21:00' },
+];
+let schedule = DEFAULT_SCHEDULE.map(x => ({ ...x }));
+let useSchedule = true;
+
+function hoursOf(time) {
+    let h = 0;
+    for (const m of normDigits(time || '').matchAll(/(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})/g)) {
+        let d = (+m[3] * 60 + +m[4]) - (+m[1] * 60 + +m[2]);
+        if (d < 0) d += 24 * 60;
+        h += d / 60;
+    }
+    return h;
+}
+const dayHours = i => schedule[i].on ? (hoursOf(schedule[i].time) || 1) : 0;
+const weekHours = () => schedule.reduce((s, _, i) => s + dayHours(i), 0);
+function runDays() {
+    if (useSchedule) return Math.max(1, schedule.filter(x => x.on).length);
+    return parseInt(document.getElementById('daysPerWeek').value) || 7;
+}
+// สัดส่วนยอดเก็บประจำสัปดาห์ ที่ตกเป็นของวันนั้น
+function dayShare(date) {
+    if (!useSchedule) return 1 / runDays();
+    const w = weekHours(); if (!w) return 0;
+    return dayHours(date.getDay()) / w;
+}
+function renderSchedule() {
+    document.getElementById('useSchedule').checked = useSchedule;
+    document.getElementById('scheduleRows').classList.toggle('hidden', !useSchedule);
+    document.getElementById('scheduleTotal').classList.toggle('hidden', !useSchedule);
+    document.getElementById('daysSliderBox').classList.toggle('hidden', useSchedule);
+    if (!useSchedule) return;
+    const todayIdx = new Date().getDay();
+    document.getElementById('scheduleRows').innerHTML = [1, 2, 3, 4, 5, 6, 0].map(i => {
+        const d = schedule[i], hrs = dayHours(i);
+        return `<div class="flex items-center gap-2 ${i === todayIdx ? 'bg-emerald-500/10 rounded-lg' : ''} px-1">
+            <input type="checkbox" ${d.on ? 'checked' : ''} onchange="setDay(${i}, 'on', this.checked)" class="w-4 h-4 accent-emerald-500 shrink-0" aria-label="วิ่งวัน${TH_DAY_FULL[i]}">
+            <span class="w-14 text-sm ${d.on ? '' : 'text-slate-500'}">${TH_DAY_FULL[i]}</span>
+            ${d.on
+                ? `<input type="text" value="${esc(d.time)}" placeholder="17:30-20:00" onchange="setDay(${i}, 'time', this.value)" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white">
+                   <span class="w-12 text-right text-[11px] text-slate-400">${hrs.toFixed(1)} ชม.</span>`
+                : `<span class="flex-1 text-xs text-slate-500">พัก (OFF)</span>`}
+        </div>`;
+    }).join('');
+    document.getElementById('scheduleTotal').textContent = `วิ่ง ${schedule.filter(x => x.on).length} วัน · รวม ${weekHours().toFixed(1)} ชม./สัปดาห์`;
+}
+function setDay(i, key, val) {
+    schedule[i][key] = val;
+    if (key === 'on' && val && !schedule[i].time) schedule[i].time = DEFAULT_SCHEDULE[i].time || '17:30-20:00';
+    scheduleChanged(true);
+}
+function scheduleChanged(keepToggle) {
+    if (!keepToggle) useSchedule = document.getElementById('useSchedule').checked;
+    renderSchedule(); calculate();
+    if (activeId !== 'all') renderPlan();
+}
+
 // ---------- เป้าวันนี้ ----------
-// เป้า/วัน = ค่างวดต่อวันวิ่ง + ค่าน้ำมัน (ใช้ค่าที่จ่ายจริงถ้าเกินที่ตั้งไว้)
+// เป้า/วัน = ยอดเก็บต่อสัปดาห์ × สัดส่วนชั่วโมงของวันนี้ + ค่าน้ำมัน (ใช้ค่าที่จ่ายจริงถ้าเกินที่ตั้งไว้)
 function renderToday() {
-    const today = ymd(new Date());
-    const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value) || 7;
+    const now = new Date(), today = ymd(now);
     const avgPerJob = num('avgPerJob') || 1;
-    const installPerDay = goalMonthly() / 4 / daysPerWeek;
+    const share = dayShare(now);
+    const isOff = useSchedule && !schedule[now.getDay()].on;
+    const installPerDay = goalMonthly() / 4 * share;
 
     // ถ้ากำลังกรอกของวันนี้ ใช้ตัวเลขในช่องกรอกเลย (อัปเดตสด) ไม่งั้นใช้ที่บันทึกไว้
     let e = entries[today] || {};
     if (activeId !== 'all' && document.getElementById('logDate').value === today) {
         e = { income: num('logIncome'), tip: num('logTip'), fuel: num('logFuel') };
     }
-    const fuel = Math.max(num('fuelPerDay'), e.fuel || 0);
+    const fuel = isOff ? (e.fuel || 0) : Math.max(num('fuelPerDay'), e.fuel || 0);
     const target = installPerDay + fuel;
     const earned = (e.income || 0) + (e.tip || 0);
+
+    // วันพัก
+    document.getElementById('todaySlot').textContent = useSchedule && !isOff
+        ? `🕔 วันนี้ (${TH_DAY_FULL[now.getDay()]}) วิ่ง ${schedule[now.getDay()].time} · ${dayHours(now.getDay()).toFixed(1)} ชม.` : '';
+    document.getElementById('todayOffMsg').classList.toggle('hidden', !isOff);
+    for (const id of ['todayTargetText', 'todayBarWrap', 'todayBarText']) document.getElementById(id).classList.toggle('hidden', isOff && !earned);
+    if (isOff) {
+        let nx = 1; while (nx < 7 && !schedule[(now.getDay() + nx) % 7].on) nx++;
+        const ni = (now.getDay() + nx) % 7;
+        document.getElementById('todayOffSub').textContent = earned > 0
+            ? `วิ่งวันพักได้ ${fmt(earned)} ฿ เป็นโบนัส 🎁`
+            : `พักให้เต็มที่ · วันวิ่งถัดไป: ${nx === 1 ? 'พรุ่งนี้' : TH_DAY_FULL[ni]} ${schedule[ni].time}`;
+        document.getElementById('todayRemain').classList.add('hidden');
+        document.getElementById('todayDoneMsg').classList.add('hidden');
+        return;
+    }
     const remain = Math.max(0, target - earned);
     const pct = target > 0 ? Math.min(100, earned / target * 100) : 0;
     const done = target > 0 && earned >= target;
@@ -733,7 +831,7 @@ function monthlyFor(g, paceKey) {
     return Math.min(rem, Math.max(min, rem / Math.max(1, g.months || 12)));
 }
 function jobsPerDayFor(monthly) {
-    const days = parseInt(document.getElementById('daysPerWeek').value) || 7;
+    const days = runDays();
     return Math.ceil((monthly / 4 / days + num('fuelPerDay')) / (num('avgPerJob') || 1));
 }
 function etaText(rem, monthly) {
@@ -906,10 +1004,10 @@ function calculate() {
     const monthlyPayment = goalMonthly();
     const avgPerJob = num('avgPerJob') || 1;
     const fuelPerDay = num('fuelPerDay');
-    const daysPerWeek = parseInt(document.getElementById('daysPerWeek').value) || 7;
-    document.getElementById('daysVal').innerText = daysPerWeek;
+    const daysPerWeek = runDays();
+    document.getElementById('daysVal').innerText = parseInt(document.getElementById('daysPerWeek').value) || 7;
 
-    store(KEY_SETTINGS, { avgPerJob, fuelPerDay, daysPerWeek });
+    store(KEY_SETTINGS, { avgPerJob, fuelPerDay, daysPerWeek: parseInt(document.getElementById('daysPerWeek').value) || 7, useSchedule, schedule });
 
     const weeklyPayment = monthlyPayment / 4;
     const totalWeeklyTarget = weeklyPayment + fuelPerDay * daysPerWeek;
@@ -1056,6 +1154,8 @@ function toggleMbSync(on) {
         document.getElementById('avgPerJob').value = s.avgPerJob;
         document.getElementById('fuelPerDay').value = s.fuelPerDay;
         document.getElementById('daysPerWeek').value = s.daysPerWeek;
+        if (typeof s.useSchedule === 'boolean') useSchedule = s.useSchedule;
+        if (Array.isArray(s.schedule) && s.schedule.length === 7) schedule = s.schedule;
     }
     const savedLogs = load(KEY_LOGS, null);
     if (savedLogs) logs = savedLogs;
@@ -1065,6 +1165,7 @@ function toggleMbSync(on) {
 document.getElementById('logDate').value = ymd(new Date());
 document.getElementById('gearDate').value = ymd(new Date());
 document.getElementById('mbSync').checked = mbSyncOn();
+renderSchedule();
 selectGoal(activeId);
 syncMoneyBook();
 </script>
