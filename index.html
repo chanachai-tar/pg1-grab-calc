@@ -187,6 +187,21 @@
                             <button type="button" onclick="pickGoal('เงินเก็บฉุกเฉิน')" class="text-[11px] px-2 py-1 rounded-full border border-slate-600 text-slate-300">เงินเก็บฉุกเฉิน</button>
                         </div>
                     </div>
+                    <div class="bg-slate-900/60 border border-slate-700 rounded-xl p-3">
+                        <div class="text-sm text-slate-300 mb-2">🧾 ผ่อนเป็นงวด <span class="text-[11px] text-slate-500">(ไม่บังคับ เช่น SPayLater, ผ่อนรถ)</span></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">จำนวนงวด</label>
+                                <input type="number" inputmode="numeric" id="instCount" placeholder="เช่น 5" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold" oninput="editGoal('inst')">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">ยอดต่องวด (บาท)</label>
+                                <input type="number" inputmode="decimal" id="instAmount" placeholder="เช่น 882.37" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold" oninput="editGoal('inst')">
+                            </div>
+                        </div>
+                        <div id="instInfo" class="text-[11px] text-slate-400 mt-2"></div>
+                    </div>
+
                     <div>
                         <label class="block text-sm text-slate-400 mb-1">ราคาเป้าหมาย / ยอดทั้งหมดที่ต้องเก็บ (บาท)</label>
                         <input type="number" inputmode="decimal" id="goalPrice" placeholder="เช่น 40000 (ไม่ใส่ก็ได้)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-semibold" oninput="editGoal()">
@@ -668,8 +683,22 @@ function setCustomMonths() {
     g.pace = 'custom'; g.months = m;
     saveGoals(); renderPlan(); calculate();
 }
+function hasInst(g) { return g.instCount > 0 && g.instAmount > 0; }
+// งวดที่จ่ายครบแล้ว (คิดจากยอดสะสม) และยอดที่ยังขาดของงวดถัดไป
+function instStatus(g) {
+    const saved = Math.max(0, savedOf(g));
+    const paid = Math.min(g.instCount, Math.floor(saved / g.instAmount + 1e-9));
+    const nextNeed = paid >= g.instCount ? 0 : (paid + 1) * g.instAmount - saved;
+    return { paid, nextNeed };
+}
 function renderPlan() {
     const g = activeGoal(); if (!g) return;
+    const ii = document.getElementById('instInfo');
+    if (hasInst(g)) {
+        const s = instStatus(g);
+        ii.innerHTML = `รวม <b class="text-white">${fmt(g.instCount * g.instAmount)}</b> ฿ · จ่ายครบแล้ว <b class="text-emerald-400">${s.paid}/${g.instCount}</b> งวด` +
+            (s.nextNeed > 0 ? ` · งวดถัดไปขาดอีก <b class="text-yellow-400">${fmt(s.nextNeed)}</b> ฿` : ' 🎉');
+    } else ii.textContent = 'ใส่จำนวนงวดกับยอดต่องวด แล้วระบบจะตั้งราคาและยอดขั้นต่ำให้';
     const hasPrice = g.price > 0;
     document.getElementById('paceBox').classList.toggle('hidden', !hasPrice);
     document.getElementById('planSummary').classList.toggle('hidden', !hasPrice);
@@ -712,7 +741,12 @@ function renderGoalProgress() {
     document.getElementById('goalProgressLabel').textContent = `สะสม ${fmt(saved)} / ${fmt(price)} ฿` + (activeId !== 'all' ? ` · ${paceLabel(priced[0])}` : '');
     document.getElementById('goalProgressPct').textContent = Math.floor(pct) + '%';
     document.getElementById('goalProgressBar').style.width = Math.min(100, pct) + '%';
-    document.getElementById('goalProgressEta').textContent = etaText(rem, monthly);
+    let eta = etaText(rem, monthly);
+    if (activeId !== 'all' && hasInst(priced[0])) {
+        const s = instStatus(priced[0]);
+        eta = `งวด ${s.paid}/${priced[0].instCount}` + (s.nextNeed > 0 ? ` · งวดถัดไปขาดอีก ${fmt(s.nextNeed)} ฿ · ` : ' · ') + eta;
+    }
+    document.getElementById('goalProgressEta').textContent = eta;
 }
 function esc(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
@@ -738,6 +772,8 @@ function fillGoalForm() {
         document.getElementById('goalName').value = g.name;
         document.getElementById('monthlyPayment').value = g.monthly || '';
         document.getElementById('goalPrice').value = g.price || '';
+        document.getElementById('instCount').value = g.instCount || '';
+        document.getElementById('instAmount').value = g.instAmount || '';
         document.getElementById('customMonths').value = g.pace === 'custom' ? g.months : '';
         renderPlan();
         document.getElementById('deleteGoalBtn').classList.toggle('hidden', goals.length < 2);
@@ -758,9 +794,17 @@ function addGoal() {
     showTab('goal');
     const inp = document.getElementById('goalName'); inp.focus(); inp.select();
 }
-function editGoal() {
+function editGoal(src) {
     const g = activeGoal(); if (!g) return;
     g.name = document.getElementById('goalName').value;
+    g.instCount = parseInt(document.getElementById('instCount').value) || 0;
+    g.instAmount = num('instAmount');
+    if (src === 'inst' && g.instCount > 0 && g.instAmount > 0) {
+        // ผ่อนเป็นงวด: ราคา = งวด × ยอดต่องวด, ขั้นต่ำต่อเดือน = ยอดต่องวด
+        document.getElementById('goalPrice').value = Math.round(g.instCount * g.instAmount * 100) / 100;
+        document.getElementById('monthlyPayment').value = g.instAmount;
+        if (!g.pace) g.pace = 'chill';
+    }
     g.monthly = num('monthlyPayment');
     g.price = num('goalPrice');
     if (g.price > 0 && !g.pace) g.pace = 'normal';
