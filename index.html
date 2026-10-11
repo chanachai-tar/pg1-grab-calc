@@ -618,22 +618,28 @@ function goalName() {
 }
 // ---------- ราคาเป้าหมาย + ความเร็ว ----------
 const PACES = [
-    { k: 'chill',  icon: '🐢', label: 'สบายๆ',   months: 24 },
-    { k: 'normal', icon: '🚶', label: 'ปกติ',     months: 12 },
-    { k: 'fast',   icon: '🏃', label: 'ไว',       months: 6 },
-    { k: 'turbo',  icon: '🚀', label: 'เทอร์โบ', months: 3 },
+    { k: 'chill',  icon: '🐢', label: 'สบายๆ',   months: 24, mult: 1,   multText: 'ตามขั้นต่ำ' },
+    { k: 'normal', icon: '🚶', label: 'ปกติ',     months: 12, mult: 1.5, multText: 'ขั้นต่ำ ×1.5' },
+    { k: 'fast',   icon: '🏃', label: 'ไว',       months: 6,  mult: 2,   multText: 'ขั้นต่ำ ×2' },
+    { k: 'turbo',  icon: '🚀', label: 'เทอร์โบ', months: 3,  mult: 3,   multText: 'ขั้นต่ำ ×3' },
 ];
 function savedOf(g) { return Object.values(logs[g.id] || {}).reduce((s, e) => s + netOf(e), 0); }
 function remainingOf(g) { return Math.max(0, (g.price || 0) - Math.max(0, savedOf(g))); }
 function paceOf(g) { return PACES.find(p => p.k === g.pace) || null; }
 function monthsOf(g) { const p = paceOf(g); return p ? p.months : Math.max(1, g.months || 12); }
 function paceLabel(g) { const p = paceOf(g); return p ? `${p.icon} ${p.label}` : `⚙️ ${monthsOf(g)} เดือน`; }
-// ยอดต่อเดือนที่ต้องเก็บจริง: ถ้ามีราคา = ที่เหลือ ÷ จำนวนเดือนตามความเร็ว (ไม่ต่ำกว่ายอดขั้นต่ำ)
-function monthlyFor(g, months) {
+// ยอดต่อเดือนที่ต้องเก็บจริง
+// - มียอดขั้นต่ำ: ความเร็ว = ขั้นต่ำ × ตัวคูณ (สบายๆ ×1 ... เทอร์โบ ×3)
+// - ไม่มียอดขั้นต่ำ: ความเร็ว = ยอดที่เหลือ ÷ จำนวนเดือน (24/12/6/3)
+// - กำหนดเอง: ยอดที่เหลือ ÷ จำนวนเดือนที่ใส่ (ไม่ต่ำกว่าขั้นต่ำ)
+function monthlyFor(g, paceKey) {
     if (!(g.price > 0)) return g.monthly || 0;
     const rem = remainingOf(g);
     if (rem <= 0) return 0;
-    return Math.max(g.monthly || 0, rem / (months || monthsOf(g)));
+    const min = g.monthly || 0;
+    const p = PACES.find(x => x.k === (paceKey || g.pace));
+    if (p) return min > 0 ? Math.min(rem, min * p.mult) : rem / p.months;
+    return Math.min(rem, Math.max(min, rem / Math.max(1, g.months || 12)));
 }
 function jobsPerDayFor(monthly) {
     const days = parseInt(document.getElementById('daysPerWeek').value) || 7;
@@ -675,10 +681,12 @@ function renderPlan() {
     if (!hasPrice) return;
 
     document.getElementById('paceCards').innerHTML = PACES.map(p => {
-        const on = g.pace === p.k, m = monthlyFor(g, p.months);
+        const on = g.pace === p.k, m = monthlyFor(g, p.k);
+        const months = m > 0 ? Math.ceil(remainingOf(g) / m) : 0;
+        const sub = (g.monthly > 0 ? p.multText + ' · ' : '') + `~${months} เดือน`;
         return `<button type="button" onclick="setPace('${p.k}')" class="text-left rounded-xl p-2.5 border ${on ? 'border-emerald-400 bg-emerald-500/15' : 'border-slate-700 bg-slate-900/60'}">
             <div class="font-semibold ${on ? 'text-emerald-300' : ''}">${p.icon} ${p.label}</div>
-            <div class="text-[11px] text-slate-400">${p.months} เดือน</div>
+            <div class="text-[11px] text-slate-400">${sub}</div>
             <div class="text-xs mt-1">เดือนละ <b>${fmt(m)}</b> ฿</div>
             <div class="text-[11px] text-yellow-400">~${jobsPerDayFor(m)} งาน/วัน</div>
         </button>`;
