@@ -103,9 +103,12 @@
         </div>
 
         <!-- ฟอร์มบันทึก -->
-        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-3">
+        <div id="allModeNote" class="hidden bg-slate-800 rounded-2xl p-4 border border-dashed border-slate-600 text-center text-sm text-slate-400">
+            กำลังดู 🧮 รวมทุกเป้า — เลือกเป้าหมายด้านบนก่อนเพื่อบันทึกรายได้
+        </div>
+        <div id="logForm" class="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-3">
             <div class="flex items-center justify-between">
-                <h2 class="font-semibold">บันทึกวันนี้</h2>
+                <h2 class="font-semibold">บันทึกวันนี้ · <span class="goal-name text-emerald-400">ผ่อน PG-1</span></h2>
                 <input type="date" id="logDate" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white" onchange="loadDay()">
             </div>
             <div class="grid grid-cols-2 gap-3">
@@ -137,7 +140,7 @@
         <!-- ประวัติ -->
         <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700">
             <div class="flex items-center justify-between mb-2">
-                <h2 class="font-semibold">ประวัติ</h2>
+                <h2 class="font-semibold">ประวัติ · <span class="goal-name text-emerald-400">ผ่อน PG-1</span></h2>
                 <button onclick="exportCSV()" class="text-xs text-slate-400 border border-slate-600 rounded-lg px-2 py-1">⬇️ สำรองเป็น CSV</button>
             </div>
             <div id="historyList" class="divide-y divide-slate-700/60 text-sm"></div>
@@ -226,7 +229,23 @@ function store(key, value) {
     catch (e) { return false; }
 }
 
-let entries = load(KEY_LOG, {});   // { 'YYYY-MM-DD': {income, tip, fuel, jobs} }
+const KEY_LOGS = 'pg1_logs_v2';
+let logs = {};      // { goalId: { 'YYYY-MM-DD': {income, tip, fuel, jobs} } }
+let entries = {};   // บันทึกของเป้าที่เลือก (หรือรวมทุกเป้า)
+function saveLogs() { return store(KEY_LOGS, logs); }
+// ผูก entries กับเป้าที่เลือก; โหมดรวม = รวมยอดทุกเป้าตามวันที่
+function bindEntries() {
+    if (activeId !== 'all') {
+        if (!logs[activeId]) logs[activeId] = {};
+        entries = logs[activeId];
+        return;
+    }
+    entries = {};
+    for (const g of goals) for (const [d, e] of Object.entries(logs[g.id] || {})) {
+        const m = entries[d] || (entries[d] = { income: 0, tip: 0, fuel: 0, jobs: 0 });
+        m.income += e.income || 0; m.tip += e.tip || 0; m.fuel += e.fuel || 0; m.jobs += e.jobs || 0;
+    }
+}
 let period = 'week';
 
 // ---------- วันที่ ----------
@@ -286,7 +305,7 @@ function renderToday() {
 
     // ถ้ากำลังกรอกของวันนี้ ใช้ตัวเลขในช่องกรอกเลย (อัปเดตสด) ไม่งั้นใช้ที่บันทึกไว้
     let e = entries[today] || {};
-    if (document.getElementById('logDate').value === today) {
+    if (activeId !== 'all' && document.getElementById('logDate').value === today) {
         e = { income: num('logIncome'), tip: num('logTip'), fuel: num('logFuel') };
     }
     const fuel = Math.max(num('fuelPerDay'), e.fuel || 0);
@@ -316,7 +335,7 @@ function saveDay() {
     const e = { income: num('logIncome'), tip: num('logTip'), fuel: num('logFuel'), jobs: num('logJobs') };
     const existed = !!entries[date];
     entries[date] = e;
-    const ok = store(KEY_LOG, entries);
+    const ok = saveLogs();
     const msg = document.getElementById('saveMsg');
     msg.textContent = ok ? (existed ? '✓ อัปเดตแล้ว' : '✓ บันทึกแล้ว') : '⚠️ บันทึกในเครื่องไม่ได้ (โหมดไม่ระบุตัวตน?)';
     setTimeout(() => msg.textContent = '', 2000);
@@ -330,7 +349,7 @@ function editDay(date) {
 function deleteDay(date) {
     if (!confirm('ลบรายการวันที่ ' + thDate(date) + ' ?')) return;
     delete entries[date];
-    store(KEY_LOG, entries);
+    saveLogs();
     render();
     loadDay();
 }
@@ -384,6 +403,7 @@ function render() {
     // ประวัติ
     const list = document.getElementById('historyList');
     const dates = Object.keys(entries).sort().reverse();
+    if (activeId === 'all') { renderAllHistory(list); return; }
     if (!dates.length) {
         list.innerHTML = '<p class="text-slate-500 text-center py-4 text-xs">ยังไม่มีข้อมูล เริ่มบันทึกวันแรกได้เลย</p>';
         return;
@@ -401,11 +421,32 @@ function render() {
     }).join('');
 }
 
+function renderAllHistory(list) {
+    const rows = [];
+    for (const g of goals) for (const [d, e] of Object.entries(logs[g.id] || {})) rows.push({ g, d, e });
+    rows.sort((a, b) => b.d.localeCompare(a.d));
+    if (!rows.length) {
+        list.innerHTML = '<p class="text-slate-500 text-center py-4 text-xs">ยังไม่มีข้อมูล</p>';
+        return;
+    }
+    list.innerHTML = rows.map(({ g, d, e }) => {
+        const n = netOf(e);
+        return `<button onclick="selectGoal('${g.id}'); editDay('${d}')" class="w-full flex items-center justify-between py-2 text-left">
+            <div class="flex-1">
+                <div class="font-medium">${thDate(d)} <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 ml-1">${esc(g.name.trim() || 'เป้าหมาย')}</span></div>
+                <div class="text-[11px] text-slate-500">รับ ${fmt(e.income || 0)} · ทิป ${fmt(e.tip || 0)} · น้ำมัน ${fmt(e.fuel || 0)}${e.jobs ? ' · ' + e.jobs + ' งาน' : ''}</div>
+            </div>
+            <span class="font-semibold ${n < 0 ? 'text-rose-400' : 'text-emerald-400'}">${fmt(n)}</span>
+        </button>`;
+    }).join('');
+}
+
 function exportCSV() {
-    const rows = [['วันที่', 'รายรับ', 'ทิป', 'ค่าน้ำมัน', 'จำนวนงาน', 'สุทธิ']];
-    for (const date of Object.keys(entries).sort()) {
-        const e = entries[date];
-        rows.push([date, e.income || 0, e.tip || 0, e.fuel || 0, e.jobs || 0, netOf(e)]);
+    const rows = [['เป้าหมาย', 'วันที่', 'รายรับ', 'ทิป', 'ค่าน้ำมัน', 'จำนวนงาน', 'สุทธิ']];
+    const csvName = s => '"' + (s.trim() || 'เป้าหมาย').replace(/"/g, '""') + '"';
+    for (const g of goals) for (const date of Object.keys(logs[g.id] || {}).sort()) {
+        const e = logs[g.id][date];
+        rows.push([csvName(g.name), date, e.income || 0, e.tip || 0, e.fuel || 0, e.jobs || 0, netOf(e)]);
     }
     const blob = new Blob(['﻿' + rows.map(r => r.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -458,7 +499,13 @@ function fillGoalForm() {
     }
 }
 
-function selectGoal(id) { activeId = id; saveGoals(); renderGoalChips(); fillGoalForm(); calculate(); }
+function selectGoal(id) {
+    activeId = id; saveGoals(); bindEntries();
+    const all = id === 'all';
+    document.getElementById('logForm').classList.toggle('hidden', all);
+    document.getElementById('allModeNote').classList.toggle('hidden', !all);
+    renderGoalChips(); fillGoalForm(); calculate(); loadDay();
+}
 function addGoal() {
     const g = { id: 'g' + Date.now(), name: 'เป้าหมายใหม่', monthly: 1000 };
     goals.push(g);
@@ -475,7 +522,8 @@ function editGoal() {
 function pickGoal(n) { document.getElementById('goalName').value = n; editGoal(); }
 function deleteGoal() {
     if (goals.length < 2) return;
-    if (!confirm('ลบเป้าหมาย "' + goalName() + '" ?')) return;
+    if (!confirm('ลบเป้าหมาย "' + goalName() + '" และประวัติรายได้ของเป้านี้ทั้งหมด ?')) return;
+    delete logs[activeId]; saveLogs();
     goals = goals.filter(g => g.id !== activeId);
     selectGoal(goals[0].id);
 }
@@ -529,11 +577,13 @@ function calculate() {
         document.getElementById('fuelPerDay').value = s.fuelPerDay;
         document.getElementById('daysPerWeek').value = s.daysPerWeek;
     }
-    saveGoals(); renderGoalChips(); fillGoalForm();
+    const savedLogs = load(KEY_LOGS, null);
+    if (savedLogs) logs = savedLogs;
+    else { logs = { [goals[0].id]: load(KEY_LOG, {}) }; saveLogs(); }  // ประวัติเดิมเป็นของเป้าแรก
+    saveGoals();
 })();
 document.getElementById('logDate').value = ymd(new Date());
-loadDay();
-calculate();
+selectGoal(activeId);
 </script>
 </body>
 </html>
